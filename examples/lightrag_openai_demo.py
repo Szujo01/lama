@@ -14,25 +14,25 @@ rag = LightRAG(
     # llm_model_func=gpt_4o_complete
 )
 
-with open("./book.txt", "r", encoding="utf-16") as f:
+with open("text.txt", "r", encoding="utf-8") as f:
     rag.insert(f.read())
 
 # Perform naive search
 print(
-    rag.query("Mi az a alapvető eszköz?", param=QueryParam(mode="naive"))
+    rag.query("What are the top themes in this story?", param=QueryParam(mode="naive"))
 )
 
 # Perform local search
 print(
-    rag.query("Mi az a fogyasztói vezeték?", param=QueryParam(mode="local"))
+    rag.query("What are the top themes in this story?", param=QueryParam(mode="local"))
 )
 
 # Perform global search
 print(
-    rag.query("Mi vonatkozik az irányításra?", param=QueryParam(mode="global"))
+    rag.query("What are the top themes in this story?", param=QueryParam(mode="global"))
 )
 
 # Perform hybrid search
 print(
-    rag.query("Mit jelent a lakossági fogyasztó?", param=QueryParam(mode="hybrid"))
+    rag.query("What are the top themes in this story?", param=QueryParam(mode="hybrid"))
 )

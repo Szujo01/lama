@@ -1,6 +1,6 @@
 import os
 import asyncio
-from groq import AsyncGroq
+from lama.examples.groq_usage import AsyncGroq
 from lightrag import LightRAG, QueryParam
 from dotenv import load_dotenv
 
@@ -48,11 +48,25 @@ rag = LightRAG(
 )
 
 # Rest of your code remains the same
-with open("./book.txt", "r", encoding="UTF-16") as f:
+with open("text.txt", "r", encoding="UTF-8") as f:
     rag.insert(f.read())
 
 # Perform searches
-print(rag.query("Mi az a alapvető eszköz?", param=QueryParam(mode="naive")))
-print(rag.query("Mi az a fogyasztói vezeték?", param=QueryParam(mode="local")))
-print(rag.query("Mi vonatkozik az irányításra?", param=QueryParam(mode="global")))
-print(rag.query("Mit jelent a lakossági fogyasztó?", param=QueryParam(mode="hybrid")))
+print(
+    rag.query("What are the top themes in this story?", param=QueryParam(mode="naive"))
+)
+
+# Perform local search
+print(
+    rag.query("What are the top themes in this story?", param=QueryParam(mode="local"))
+)
+
+# Perform global search
+print(
+    rag.query("What are the top themes in this story?", param=QueryParam(mode="global"))
+)
+
+# Perform hybrid search
+print(
+    rag.query("What are the top themes in this story?", param=QueryParam(mode="hybrid"))
+)
