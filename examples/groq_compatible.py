@@ -69,7 +69,6 @@ async def main():
         return
 
     try:
-        print("kiscica")
         with open("./text.txt", "r", encoding="utf-8") as f:
             await rag.ainsert(f.read())
     except FileNotFoundError:
