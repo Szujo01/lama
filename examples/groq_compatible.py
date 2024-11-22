@@ -3,71 +3,47 @@ import asyncio
 from lightrag import LightRAG, QueryParam
 from lightrag.utils import EmbeddingFunc
 import numpy as np
-import httpx
-from ollama import Client as OllamaClient
+from groq import Groq
+from FlagEmbedding import BGEM3FlagModel
 
 WORKING_DIR = "./dickens"
 
 if not os.path.exists(WORKING_DIR):
     os.mkdir(WORKING_DIR)
 
+# Initialize Groq client
+groq_client = Groq(api_key=os.environ.get('GROQ_API_KEY'))
 
-async def groq_complete(prompt, system_prompt=None, history_messages=[], **kwargs):
-    api_key = os.getenv("GROQ_API_KEY")
-    if not api_key:
-        raise ValueError("GROQ_API_KEY environment variable is not set")
+# Initialize BGE-M3 model
+#bge_model = BGEM3FlagModel('BAAI/bge-m3', use_fp16=True)
+bge_model = BGEM3FlagModel('BAAI/bge-m3-unsupervised', use_fp16=True)
 
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
-    }
-
+async def llm_model_func(
+    prompt, system_prompt=None, history_messages=[], **kwargs
+) -> str:
     messages = []
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
     messages.extend(history_messages)
     messages.append({"role": "user", "content": prompt})
-
-    data = {
-        "model": "mixtral-8x7b-32768",  # You can change this to other Groq models
-        "messages": messages,
-        **kwargs
-    }
     
-    async with httpx.AsyncClient() as client:
-        response = await client.post("https://api.groq.com/openai/v1/chat/completions", json=data, headers=headers)
-        response.raise_for_status()
-        return response.json()["choices"][0]["message"]["content"]
-
-async def llm_model_func(prompt, system_prompt=None, history_messages=[], **kwargs) -> str:
-    return await groq_complete(prompt, system_prompt, history_messages, **kwargs)
-
-async def bge_m3_embedding(texts: list[str]) -> np.ndarray:
-    client = OllamaClient()
-    embeddings = []
-    for text in texts:
-        response = await client.embeddings(model='bge-m3', prompt=text)
-        embeddings.append(response['embedding'])
-    return np.array(embeddings)
+    response = groq_client.chat.completions.create(
+        model="mixtral-8x7b-32768",
+        messages=messages,
+        **kwargs
+    )
+    return response.choices[0].message.content
 
 async def embedding_func(texts: list[str]) -> np.ndarray:
-    return await bge_m3_embedding(texts)
+    embeddings = bge_model.encode(texts, batch_size=12, max_length=8192)['dense_vecs']
+    print(f"Actual embedding dimension: {embeddings.shape[1]}")
+    return np.array(embeddings)
 
 async def get_embedding_dim():
     test_text = ["This is a test sentence."]
     embedding = await embedding_func(test_text)
-    embedding_dim = len(embedding[0])
+    embedding_dim = embedding.shape[1]
     return embedding_dim
-
-# function test
-async def test_funcs():
-    result = await llm_model_func("How are you?")
-    print("llm_model_func: ", result)
-
-    result = await embedding_func(["How are you?"])
-    print("embedding_func: ", result)
-
-# asyncio.run(test_funcs())
 
 async def main():
     try:
@@ -78,14 +54,46 @@ async def main():
             working_dir=WORKING_DIR,
             llm_model_func=llm_model_func,
             embedding_func=EmbeddingFunc(
-                embedding_dim=embedding_dimension,
+                embedding_dim=1024,  # Set to 1024 for BGE-M3
                 max_token_size=8192,
                 func=embedding_func,
             ),
         )
-        # Rest of your main function...
+
+        with open("./text.txt", "r", encoding="utf-8") as f:
+            await rag.ainsert(f.read())
+
+        # Perform naive search
+        print(
+            await rag.aquery(
+                "What are the top themes in this story?", param=QueryParam(mode="naive")
+            )
+        )
+
+        # Perform local search
+        print(
+            await rag.aquery(
+                "What are the top themes in this story?", param=QueryParam(mode="local")
+            )
+        )
+
+        # Perform global search
+        print(
+            await rag.aquery(
+                "What are the top themes in this story?",
+                param=QueryParam(mode="global"),
+            )
+        )
+
+        # Perform hybrid search
+        print(
+            await rag.aquery(
+                "What are the top themes in this story?",
+                param=QueryParam(mode="hybrid"),
+            )
+        )
     except Exception as e:
         print(f"An error occurred: {e}")
-        
+
 if __name__ == "__main__":
     asyncio.run(main())
